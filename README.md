@@ -6,8 +6,11 @@ Program służy do zbierania parametrów komputerów w sieci lokalnej z zadanego
 Zakres adresów IP wyznaczany jest na podstawie aktualnego adresu IP komputera.
 
 Program sprawdza czy pod danym adresem IP jest włączony komputer próbując połaczyć się na porcie TCP 445 (NetBIOS). Timeout nawiązania połączenia 200 ms. Jeśli nie uda się nawiązać połączenia, to dany adres IP nie pojawi się na liście wyjściowej.
+(ipscam.png)
 
 Dane wyjściowe są prezentowanie w tabeli Powershella. Tabela umożliwia łatwe filtrowanie i sortowanie danych.
+(ipscan2.png)
+
 ## Funkcje
 1. **Name** - nazwa komputera. Pobierana komendą Powershell *Get-WmiObject win32_computersystem*.
 1. **Last Logged User** - nazwa użytkownika, który ostatnio logował się na komputerze. Określana na podstawie pliku na pulpicie "Skrót do moje konto".
