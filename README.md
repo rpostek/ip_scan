@@ -9,7 +9,7 @@ Program sprawdza czy pod danym adresem IP jest włączony komputer próbując po
 ![start](ipscan.png)
 
 Dane wyjściowe są prezentowanie w tabeli Powershella. Tabela umożliwia łatwe filtrowanie i sortowanie danych.
-![tabela](ipscan2.PNG)
+![tabela](ipscan2.png)
 
 ## Funkcje
 1. **Name** - nazwa komputera. Pobierana komendą Powershell *Get-WmiObject win32_computersystem*.
