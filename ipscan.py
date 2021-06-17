@@ -11,7 +11,7 @@ import tempfile
 from pefile import PE
 import threading
 import time
-
+import json
 
 class Property:
     def __init__(self, name: str, func: Callable, description: str='', enabled: bool=True) -> None:
@@ -39,40 +39,18 @@ class Func:
         return data
 
     @staticmethod
-    def get_monitor_year(ip: str) -> dict:
+    def get_monitor_data(ip: str) -> dict:
         data = dict()
         try:
-            r = Func.runPS(f'gwmi -Namespace root\wmi -Class wmiMonitorID -comp {ip}')
-            data['Monitor YearOfManufacture'] = r['YearOfManufacture']
+            psqry = f'$dt = gwmi -Namespace root\\wmi -Class wmiMonitorID -comp {ip};'\
+                    + r" $name = '';foreach ($i in $dt.UserFriendlyName) {$name += [char[]]$i};"\
+                    + r" $sn = '';foreach ($i in $dt.SerialNumberID) {$sn += [char[]]$i};"\
+                    + r" @{'Monitor YearOfManufacture'=$dt.YearOfManufacture;'Monitor Name'=$name;'Monitor SN'=$sn}"
+            data = Func.runPSjson(psqry)
             return data
         except:
             pass
         return data
-
-    @staticmethod
-    def get_monitor_name(ip: str) -> dict:
-        data = dict()
-        try:
-            ss=f"$sn = gwmi -Namespace root\\wmi -Class wmiMonitorID -ComputerName {ip};" +  r" $s = '';foreach ($i in $sn.UserFriendlyName) {$s += [char[]]$i}; return($s)"
-            r = Func.runPSsingle(ss)
-            data['Monitor Name'] = r
-            return data
-        except:
-            pass
-        return data
-
-    @staticmethod
-    def get_monitor_sn(ip: str) -> dict:
-        data = dict()
-        try:
-            ss=f"$sn = gwmi -Namespace root\\wmi -Class wmiMonitorID -ComputerName {ip};" +  r" $s = '';foreach ($i in $sn.SerialNumberID) {$s += [char[]]$i}; return($s)"
-            r = Func.runPSsingle(ss)
-            data['Monitor SN'] = r
-            return data
-        except:
-            pass
-        return data
-
 
     @staticmethod
     def get_os_version(ip: str) -> dict:
@@ -122,19 +100,16 @@ class Func:
         return data
 
     @staticmethod
-    def runPSsingle(cmd: str) -> str:
-        '''
-        '''
+    def runPSjson(cmd: str) -> str:
         try:
-            ps = subprocess.Popen(["powershell", "-Command", cmd],
+            ps = subprocess.Popen(["powershell", "-Command", cmd + ' | ConvertTo-json'],
                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                   creationflags=subprocess.CREATE_NO_WINDOW)
             data = ps.communicate()[0]
-            data = data.decode(encoding='cp852').strip()
-            return data
+            data = data.decode(encoding='cp852')
+            return json.loads(data)
         except:
             return dict()
-
 
     @staticmethod
     def runPS(cmd: str) -> dict:
@@ -254,9 +229,9 @@ properties = (
     Property('Chrome Version', Func.get_chrome_version, 'wersja przeglądarki chrome', False),
     Property('PrintConfig.dll', Func.exists_printconfig, 'obecnośc pliku PrintConfig.dll potrzebnego do drukowania z aplikacji UPW', False),
     Property('Office', Func.get_office_version, 'wersja programu Office', False),
-    Property('Monitor YearOfManufacture', Func.get_monitor_year, 'rok produkcji monitora', False),
-    Property('Monitor Name', Func.get_monitor_name, 'model monitora', False),
-    Property('Monitor SN', Func.get_monitor_sn, 'numer seryjny monitora', False),
+    Property('Monitor YearOfManufacture', Func.get_monitor_data, 'rok produkcji monitora', False),
+    Property('Monitor Name', Func.get_monitor_data, 'model monitora', False),
+    Property('Monitor SN', Func.get_monitor_data, 'numer seryjny monitora', False),
 )
 
 def get_params():
@@ -327,7 +302,6 @@ def check_computer(ip: ipaddress, no: int, cfg: dict, table: list) -> None:
         lock.acquire()
         table.append(clear_data(data, cfg['property_list']))
         lock.release()
-        #print(ip)
 
 if __name__ == '__main__':
     cfg = get_params()
