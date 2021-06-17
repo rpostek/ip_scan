@@ -213,8 +213,16 @@ def get_params():
     layout = [[sg.Text("Parametry do wyświetlenia:")]]
     for pr in properties:
         layout.append([sg.Checkbox(text=pr.name, tooltip=pr.description, default=pr.enabled, key='property-' + pr.name)])
-    layout.append([sg.Text('IP addr range 10.128.', pad=(1,3)), sg.InputText(size=(3,1), default_text=my_ip[2], key='ips3', pad=(1,3)), sg.InputText(size=(3,1), default_text='1', key='ips4', pad=(1,3)),\
-        sg.Text(' - 10.128.', pad=(1,3)), sg.InputText(size=(3,1), default_text=my_ip[2], key='ipe3', pad=(1,3)), sg.InputText(size=(3,1), default_text='170', key='ipe4', pad=(1,3))])
+    layout.append([sg.Text(f'IP addr range ', pad=(1,3)),
+                   sg.InputText(size=(3, 1), default_text=my_ip[0], key='ips1', pad=(1, 3)),
+                   sg.InputText(size=(3, 1), default_text=my_ip[1], key='ips2', pad=(1, 3)),
+                   sg.InputText(size=(3, 1), default_text=my_ip[2], key='ips3', pad=(1, 3)),
+                   sg.InputText(size=(3, 1), default_text='1', key='ips4', pad=(1, 3)),
+                   sg.Text(f' - ', pad=(1,3)),
+                   sg.InputText(size=(3,1), default_text=my_ip[0], key='ipe1', pad=(1,3)),
+                   sg.InputText(size=(3,1), default_text=my_ip[1], key='ipe2', pad=(1,3)),
+                   sg.InputText(size=(3,1), default_text=my_ip[2], key='ipe3', pad=(1,3)),
+                   sg.InputText(size=(3,1), default_text='170', key='ipe4', pad=(1,3))])
     layout.append([sg.ProgressBar(1, orientation='h', size=(20, 20), key='progress'), sg.Submit("OK", pad=((20, 10), 3))],)
     #layout.append([sg.ProgressBar(1, orientation='h', size=(20, 20), key='progress')],)
     window = sg.Window("ipscanner 1.0", layout)
@@ -232,9 +240,10 @@ def get_params():
     fun_list = {p.func for p in properties if p.name in prop_list}  #lista funkcji do wykonania
     prop_list = ['No', 'IP'] + prop_list   #lista kolumn do wyświetlenia
     return {'property_list': prop_list, 'function_list': fun_list,
-            'ips3': values['ips3'], 'ips4': values['ips4'], 'ipe3': values['ipe3'],'ipe4': values['ipe4'],}
+            'ips1': values['ips1'], 'ips2': values['ips2'], 'ips3': values['ips3'], 'ips4': values['ips4'],
+            'ipe1': values['ipe1'], 'ipe2': values['ipe2'], 'ipe3': values['ipe3'], 'ipe4': values['ipe4'],}
 
-def get_my_ip() -> list:
+def get_my_ip():
     return socket.gethostbyname(socket.gethostname()).split('.')
 
 def display_table(table, header):
@@ -256,7 +265,7 @@ def clear_data(data: dict, header: list) -> dict:
             d[key] = 'n/a'
     return d
 
-def check_computer(ip, no, cfg, table):
+def check_computer(ip: ipaddress, no: int, cfg: dict, table: list) -> None:
     if Func.detect_on(ip.__str__()):
         data = {'No': f'{no:03}', 'IP': ip.__str__()}
         for f in cfg['function_list']:
@@ -269,8 +278,8 @@ def check_computer(ip, no, cfg, table):
 if __name__ == '__main__':
     cfg = get_params()
     try:
-        ip_start = ipaddress.ip_address('10.128.' + cfg['ips3'] + '.' + cfg['ips4'])
-        ip_end = ipaddress.ip_address('10.128.' + cfg['ipe3'] + '.' +cfg['ipe4'])
+        ip_start = ipaddress.ip_address(cfg['ips1'] + '.' + cfg['ips2'] + '.' + cfg['ips3'] + '.' + cfg['ips4'])
+        ip_end = ipaddress.ip_address(cfg['ipe1'] + '.'  + cfg['ipe2'] + '.'  + cfg['ipe3'] + '.' +cfg['ipe4'])
         if ip_start > ip_end:
             raise ValueError
     except ValueError:
