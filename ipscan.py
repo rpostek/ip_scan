@@ -39,8 +39,45 @@ class Func:
         return data
 
     @staticmethod
+    def get_monitor_year(ip: str) -> dict:
+        data = dict()
+        try:
+            r = Func.runPS(f'gwmi -Namespace root\wmi -Class wmiMonitorID -comp {ip}')
+            data['Monitor YearOfManufacture'] = r['YearOfManufacture']
+            return data
+        except:
+            pass
+        return data
+
+    @staticmethod
+    def get_monitor_name(ip: str) -> dict:
+        data = dict()
+        try:
+            ss=f"$sn = gwmi -Namespace root\\wmi -Class wmiMonitorID -ComputerName {ip};" +  r" $s = '';foreach ($i in $sn.UserFriendlyName) {$s += [char[]]$i}; return($s)"
+            r = Func.runPSsingle(ss)
+            data['Monitor Name'] = r
+            return data
+        except:
+            pass
+        return data
+
+    @staticmethod
+    def get_monitor_sn(ip: str) -> dict:
+        data = dict()
+        try:
+            ss=f"$sn = gwmi -Namespace root\\wmi -Class wmiMonitorID -ComputerName {ip};" +  r" $s = '';foreach ($i in $sn.SerialNumberID) {$s += [char[]]$i}; return($s)"
+            r = Func.runPSsingle(ss)
+            data['Monitor SN'] = r
+            return data
+        except:
+            pass
+        return data
+
+
+    @staticmethod
     def get_os_version(ip: str) -> dict:
         OS_VERSIONS = {
+            '10.0.19043': 'Windows 10 (21H1)',
             '10.0.19042': 'Windows 10 (20H2)',
             '10.0.19041': 'Windows 10 (2004)',
             '10.0.18363': 'Windows 10 (1909)',
@@ -83,6 +120,20 @@ class Func:
         except:
             pass
         return data
+
+    @staticmethod
+    def runPSsingle(cmd: str) -> str:
+        '''
+        '''
+        try:
+            ps = subprocess.Popen(["powershell", "-Command", cmd],
+                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                  creationflags=subprocess.CREATE_NO_WINDOW)
+            data = ps.communicate()[0]
+            data = data.decode(encoding='cp852').strip()
+            return data
+        except:
+            return dict()
 
 
     @staticmethod
@@ -203,6 +254,9 @@ properties = (
     Property('Chrome Version', Func.get_chrome_version, 'wersja przeglądarki chrome', False),
     Property('PrintConfig.dll', Func.exists_printconfig, 'obecnośc pliku PrintConfig.dll potrzebnego do drukowania z aplikacji UPW', False),
     Property('Office', Func.get_office_version, 'wersja programu Office', False),
+    Property('Monitor YearOfManufacture', Func.get_monitor_year, 'rok produkcji monitora', False),
+    Property('Monitor Name', Func.get_monitor_name, 'model monitora', False),
+    Property('Monitor SN', Func.get_monitor_sn, 'numer seryjny monitora', False),
 )
 
 def get_params():
