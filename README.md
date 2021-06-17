@@ -21,7 +21,10 @@ Dane wyjściowe są prezentowanie w tabeli Powershella. Tabela umożliwia łatwe
 1. **Time Source** - źródło czasu (serwer NTP). Jeśli nie jest to nazwa serwera, oznacza to, że usługo w32time nie działa poprawnie. Pobierane skryptem Powershell *w32tm /query /status | Select-String -Pattern "^Source:.\*"
 1. **Chrome Version** - wersja zainstalowanej przegladarki Chrome. Pobierane przez wyczytanie wersji z pliku chrome.exe. 
 1. **PrintConfig.dll** - obecność pliku PrinConfig.dll w katalogu *C:\Windows\System32\spool\drivers\x64\3*. Brak tego pliku powoduje błąd przy próbie druku z aplikacji Universal Windows Platform.
-1. **Office**  - wersja oprogramowania MS Office. Pobierane skryptem Powershell *Get-WmiObject win32_product | where{$_.Name -like "Microsoft Office Standard\*" -or $_.Name -like "Microsoft Office Professional\*"} | select Name,Version*.
+1. **Office** - wersja oprogramowania MS Office. Pobierane skryptem Powershell *Get-WmiObject win32_product | where{$_.Name -like "Microsoft Office Standard\*" -or $_.Name -like "Microsoft Office Professional\*"} | select Name,Version*.
+1. **Monitor YearOfManufacture** - rok produkcji monitora. Pobierane skryptem Powershell *gwmi -Namespace root\\wmi -Class wmiMonitorID ...*.
+1. **Monitor Name** - nazwa moniotora. Pobierane skryptem Powershell *gwmi -Namespace root\\wmi -Class wmiMonitorID ...*.
+1. **Monitor SN** - numer seryjny monitora. Pobierane skryptem Powershell *gwmi -Namespace root\\wmi -Class wmiMonitorID ...*.
 
 ### Dodawanie nowych funkcji
 Nowe funkcjonalności można dodawać tworząc nowe funkcje klasy *Func* i dodając wpis do listy *properties*.
