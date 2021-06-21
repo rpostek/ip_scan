@@ -22,17 +22,28 @@ class Property:
 
 class Func:
     @staticmethod
+    def get_processor_data(ip: str) -> dict:
+        data = dict()
+        try:
+            r = Func.runPSjson(f'gwmi win32_Processor -comp {ip}')
+            data['Processor'] = r['Name']
+            return data
+        except:
+            pass
+        return data
+
+    @staticmethod
     def get_computer_data(ip: str) -> dict:
         data = dict()
         try:
-            r = Func.runPS(f'gwmi win32_computersystem -comp {ip}')
-            # for key in r.keys():
-            #    print(key, ':', r[key])
+            r = Func.runPSjson(f'gwmi win32_computersystem -comp {ip}')
             data['User Name'] = r['UserName']
             data['Name'] = r['Name']
             data['System Family'] = r['SystemFamily']
             data['Logical Processors'] = r['NumberOfLogicalProcessors']
             data['Memory'] = f"{float(r['TotalPhysicalMemory']) / (2 ** 30):2.2f} GB"
+            data['Model'] = r['Model']
+            data['Manufacturer'] = r['Manufacturer']
             return data
         except:
             pass
@@ -75,10 +86,10 @@ class Func:
         }
         data = dict()
         try:
-            r = Func.runPS(f'Get-WmiObject Win32_OperatingSystem -ComputerName {ip}')
+            r = Func.runPSjson(f'Get-WmiObject Win32_OperatingSystem -ComputerName {ip}')
             # for key in r.keys():
             #    print(key, ':', r[key])
-            data['OS'] = r['Caption']
+            data['OS'] = r['Caption'] + ' ' + r['OSArchitecture']
             data['OS Version'] = OS_VERSIONS.get(r['Version'], 'build '+ r['Version'])
             # data['SerialNumber'] = r['SerialNumber']
             return data
@@ -90,7 +101,7 @@ class Func:
     def get_office_version(ip: str) -> dict:
         data=dict()
         try:
-            r = Func.runPS(f'Get-WmiObject win32_product -ComputerName {ip} |  ' + 'where{$_.Name -like "Microsoft Office Standard*" -or $_.Name -like "Microsoft Office Professional*"} | select Name,Version')
+            r = Func.runPSjson(f'Get-WmiObject win32_product -ComputerName {ip} |  ' + 'where{$_.Name -like "Microsoft Office Standard*" -or $_.Name -like "Microsoft Office Professional*"} | select Name,Version')
             # for key in r.keys():
             #    print(key, ':', r[key])
             data['Office'] = r['Name'] # + ' (' + r['Version'] +')'
@@ -112,33 +123,20 @@ class Func:
             return dict()
 
     @staticmethod
-    def runPS(cmd: str) -> dict:
-        '''
-        ;param cmd: komenda Powershell do wykonania
-        :return: dict zawierająca dane lub pustą dict gdy wystąpił błąd wykonania
-        komenda powinna zwracać obiekt, który da się zamienić na dict
-        jesli komenda zwraca listę obiektów, to zwracany jest tylko pierwszy obiekt
-        '''
-        try:
-            ps = subprocess.Popen(["powershell", "-Command", cmd + ' | ConvertTo-Csv'],
-                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                  creationflags=subprocess.CREATE_NO_WINDOW)
-            data = ps.communicate()[0]
-            data = data.decode(encoding='cp852')
-            d = data.split(sep='\n')
-            d.pop(0)
-            csv_reader = csv.DictReader(d, delimiter=',')
-            return list(csv_reader)[0]
-
-        except:
-            return dict()
-
-    @staticmethod
     def get_time_source(ip: str) -> dict:
         data = dict()
         try:
-            r = Func.runPS(f'w32tm /query /status /computer:{ip} | Select-String -Pattern "^Source:.*"')
-            data['Time Source'] = r['Line'].replace('Source: ', '')
+            #r = Func.runPS(f'w32tm /query /status /computer:{ip} | Select-String -Pattern "^Source:.*"')
+            #data['Time Source'] = r['Line'].replace('Source: ', '')
+            r = Func.runPSjson(f'w32tm /query /status /computer:{ip}')
+            data_temp=dict()
+            for parm in r:
+                try:
+                    pair = parm.split(':', 1)
+                    data_temp[pair[0]] = pair[1].strip()
+                except:
+                    pass
+            data['Time Source'] = data_temp['Source'] + ' / ' + data_temp['Last Successful Sync Time']
             return data
         except:
             pass
@@ -222,10 +220,13 @@ properties = (
     Property('User Name', Func.get_computer_data, 'zalogowany użytkownik', False),
     Property('OS', Func.get_os_version, 'system operacyjny', False),
     Property('OS Version', Func.get_os_version, 'wersja (wydanie) systemu operacyjnego', False),
+    Property('Manufacturer', Func.get_computer_data, 'producent komputera', False),
     Property('System Family', Func.get_computer_data, 'model komputera', False),
+    Property('Model', Func.get_computer_data, 'model komputera', False),
+    Property('Processor', Func.get_processor_data, 'typ procesora', False),
     Property('Logical Processors', Func.get_computer_data, 'liczba procesorów logicznych', False),
     Property('Memory', Func.get_computer_data, 'całkowita pamięć fizyczna komputera', False),
-    Property('Time Source', Func.get_time_source, 'nazwa serwera synchronizacji czasu', False),
+    Property('Time Source', Func.get_time_source, 'nazwa serwera synchronizacji czasu i czas ostatniej synchronizacji', False),
     Property('Chrome Version', Func.get_chrome_version, 'wersja przeglądarki chrome', False),
     Property('PrintConfig.dll', Func.exists_printconfig, 'obecnośc pliku PrintConfig.dll potrzebnego do drukowania z aplikacji UPW', False),
     Property('Office', Func.get_office_version, 'wersja programu Office', False),
