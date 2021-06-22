@@ -237,12 +237,14 @@ properties = (
 
 def get_params():
     global window
-    #sg.preview_all_look_and_feel_themes()
     my_ip = get_my_ip()
     sg.theme('LightBrown1')
-    layout = [[sg.Text("Parametry do wyświetlenia:")]]
+    #layout = [[sg.Text("Parametry do wyświetlenia:")]]
+    layout=[]
+    frame_layout = []
     for pr in properties:
-        layout.append([sg.Checkbox(text=pr.name, tooltip=pr.description, default=pr.enabled, key='property-' + pr.name)])
+        frame_layout.append([sg.Checkbox(text=pr.name, tooltip=pr.description, default=pr.enabled, key='property-' + pr.name)])
+    layout.append([sg.Frame('Parametry do pobrania', frame_layout, title_color='black')])
     layout.append([sg.Text(f'IP addr range ', pad=(1,3)),
                    sg.InputText(size=(3, 1), default_text=my_ip[0], key='ips1', pad=(1, 3)),
                    sg.InputText(size=(3, 1), default_text=my_ip[1], key='ips2', pad=(1, 3)),
