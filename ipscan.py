@@ -78,7 +78,7 @@ class Func:
             '10.0.14393': 'Windows 10 (1607)',
             '10.0.10586': 'Windows 10 (1511)',
             '10.0.10240': 'Windows 10',
-            '6.3.96008': 'Windows 8.1 (Update 1)',
+            '6.3.9600': 'Windows 8.1 (Update 1)',
             '6.3.9200': 'Windows 8.1',
             '6.2.9200': 'Windows 8',
             '6.1.7601': 'Windows 7 SP1',
