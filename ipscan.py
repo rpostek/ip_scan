@@ -12,6 +12,7 @@ from pefile import PE
 import threading
 import time
 import json
+import openpyxl
 
 class Property:
     def __init__(self, name: str, func: Callable, description: str='', enabled: bool=True) -> None:
@@ -244,7 +245,7 @@ def get_params():
     frame_layout = []
     for pr in properties:
         frame_layout.append([sg.Checkbox(text=pr.name, tooltip=pr.description, default=pr.enabled, key='property-' + pr.name)])
-    layout.append([sg.Frame('Parametry do pobrania', frame_layout, title_color='black')])
+    layout.append([sg.Frame('Parameter list', frame_layout, title_color='black')])
     layout.append([sg.Text(f'IP addr range ', pad=(1,3)),
                    sg.InputText(size=(3, 1), default_text=my_ip[0], key='ips1', pad=(1, 3)),
                    sg.InputText(size=(3, 1), default_text=my_ip[1], key='ips2', pad=(1, 3)),
@@ -255,9 +256,10 @@ def get_params():
                    sg.InputText(size=(3,1), default_text=my_ip[1], key='ipe2', pad=(1,3)),
                    sg.InputText(size=(3,1), default_text=my_ip[2], key='ipe3', pad=(1,3)),
                    sg.InputText(size=(3,1), default_text='170', key='ipe4', pad=(1,3))])
+    layout.append([sg.Checkbox(text='export to Excel', default=False, key='save-xlsx')],)
     layout.append([sg.ProgressBar(1, orientation='h', size=(20, 20), key='progress'), sg.Submit("OK", pad=((20, 10), 3))],)
     #layout.append([sg.ProgressBar(1, orientation='h', size=(20, 20), key='progress')],)
-    window = sg.Window("ipscanner 1.0", layout)
+    window = sg.Window("ipscanner 1.1", layout)
     while True:
         event, values = window.read()
         if event == "OK":
@@ -273,7 +275,8 @@ def get_params():
     prop_list = ['No', 'IP'] + prop_list   #lista kolumn do wyświetlenia
     return {'property_list': prop_list, 'function_list': fun_list,
             'ips1': values['ips1'], 'ips2': values['ips2'], 'ips3': values['ips3'], 'ips4': values['ips4'],
-            'ipe1': values['ipe1'], 'ipe2': values['ipe2'], 'ipe3': values['ipe3'], 'ipe4': values['ipe4'],}
+            'ipe1': values['ipe1'], 'ipe2': values['ipe2'], 'ipe3': values['ipe3'], 'ipe4': values['ipe4'],
+            'save-xlsx': values['save-xlsx'],}
 
 def get_my_ip():
     return socket.gethostbyname(socket.gethostname()).split('.')
@@ -305,6 +308,36 @@ def check_computer(ip: ipaddress, no: int, cfg: dict, table: list) -> None:
         lock.acquire()
         table.append(clear_data(data, cfg['property_list']))
         lock.release()
+
+def save_xls(table, header):
+    filename = sg.popup_get_file('Save as',
+    title = None,
+    default_path = "",
+    default_extension = ".xlsx",
+    save_as = True,
+    multiple_files = False,
+    file_types = (('Excel files', '*.xlsx'), ('ALL Files', '*.*')),
+    no_window = True,
+    no_titlebar = False,
+    grab_anywhere = False,
+    keep_on_top = True,
+    location = (None, None),
+    initial_folder = None,
+    image = None,
+    files_delimiter = ";",
+    modal = True,
+    history = False,
+    history_setting_filename = None)
+    if filename:
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(header)
+        for data in table:
+            row=[]
+            for field in header:
+                row.append(data[field])
+            ws.append(row)
+        wb.save(filename)
 
 if __name__ == '__main__':
     cfg = get_params()
@@ -338,4 +371,6 @@ if __name__ == '__main__':
     table = sorted(table, key=lambda i:i['No'])
     for r in range(len(table)):
         table[r]['No'] = f'{r+1:03}'
+    if cfg['save-xlsx']:
+        save_xls(table, cfg['property_list'])
     display_table(table, cfg['property_list'])
