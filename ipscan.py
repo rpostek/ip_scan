@@ -34,6 +34,18 @@ class Func:
         return data
 
     @staticmethod
+    def get_bios_data(ip: str) -> dict:
+        data = dict()
+        try:
+            r = Func.runPSjson(f'gwmi Win32_BIOS -comp {ip} | select *')
+            data['BIOS'] = r['SMBIOSBIOSVersion']
+            data['BIOS date'] = r['ReleaseDate'][:4] + '-' + r['ReleaseDate'][4:6] + '-' + r['ReleaseDate'][6:8]
+            return data
+        except:
+            pass
+        return data
+
+    @staticmethod
     def get_computer_data(ip: str) -> dict:
         data = dict()
         try:
@@ -224,6 +236,8 @@ properties = (
     Property('Manufacturer', Func.get_computer_data, 'producent komputera', False),
     Property('System Family', Func.get_computer_data, 'model komputera', False),
     Property('Model', Func.get_computer_data, 'model komputera', False),
+    Property('BIOS', Func.get_bios_data, 'wersja BIOSu', False),
+    Property('BIOS date', Func.get_bios_data, 'data wydania BIOSu', False),
     Property('Processor', Func.get_processor_data, 'typ procesora', False),
     Property('Logical Processors', Func.get_computer_data, 'liczba procesorów logicznych', False),
     Property('Memory', Func.get_computer_data, 'całkowita pamięć fizyczna komputera', False),
