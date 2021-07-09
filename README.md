@@ -15,22 +15,28 @@ Dane wyjściowe są prezentowanie w tabeli Powershella. Tabela umożliwia łatwe
 1. **User Name** - nazwa aktualnie zalogowanego użytkownika. Pobierana komendą Powershell *Get-WmiObject win32_computersystem*.
 1. **OS** - nazwa systemu operacyjnego komputera. Pobierana komendą Powershell *Get-WmiObject Win32_OperatingSystem*.
 1. **OS Version** - nazwa i wersja systemu operacyjnego komputera pobierana komendą Powershell *Get-WmiObject Win32_OperatingSystem*. Pobierany jest numer build i na podstawie tabeli zamienianu=y na numer wydania.
+1. **Manufacturer** - Nazwa producenta komputera. Pobierana komendą Powershell *Get-WmiObject win32_computersystem*.
 1. **System Family** - ... Pobierana komendą Powershell *Get-WmiObject win32_computersystem*.
-1. **Logical Processors** - liczba procesorów logicznych komputera. Pobierana komendą Powershell *Get-WmiObject win32_computersystem*.
-1. **Memory** - ilość pamięci fizycznej komputera (dostepnej dla systemu operacyjnego). Pobierana komendą Powershell *Get-WmiObject win32_computersystem*.
-1. **Time Source** - źródło czasu (serwer NTP). Jeśli nie jest to nazwa serwera, oznacza to, że usługo w32time nie działa poprawnie. Pobierane skryptem Powershell *w32tm /query /status | Select-String -Pattern "^Source:.\*"
-1. **Chrome Version** - wersja zainstalowanej przegladarki Chrome. Pobierane przez wyczytanie wersji z pliku chrome.exe. 
-1. **PrintConfig.dll** - obecność pliku PrinConfig.dll w katalogu *C:\Windows\System32\spool\drivers\x64\3*. Brak tego pliku powoduje błąd przy próbie druku z aplikacji Universal Windows Platform.
-1. **Office** - wersja oprogramowania MS Office. Pobierane skryptem Powershell *Get-WmiObject win32_product | where{$_.Name -like "Microsoft Office Standard\*" -or $_.Name -like "Microsoft Office Professional\*"} | select Name,Version*.
-1. **Monitor YearOfManufacture** - rok produkcji monitora. Pobierane skryptem Powershell *gwmi -Namespace root\\wmi -Class wmiMonitorID ...*.
-1. **Monitor Name** - nazwa moniotora. Pobierane skryptem Powershell *gwmi -Namespace root\\wmi -Class wmiMonitorID ...*.
-1. **Monitor SN** - numer seryjny monitora. Pobierane skryptem Powershell *gwmi -Namespace root\\wmi -Class wmiMonitorID ...*.
+1. **Model** - model komputera. Pobierana komendą Powershell *Get-WmiObject win32_computersystem*.
+1. **BIOS** - wersja BIOSu.
+1. **BIOS date** - data wydania BIOSu.
+2. **Processor** - model procesora.
+3. **Logical Processors** - liczba procesorów logicznych komputera. Pobierana komendą Powershell *Get-WmiObject win32_computersystem*.
+4. **Memory** - ilość pamięci fizycznej komputera (dostepnej dla systemu operacyjnego). Pobierana komendą Powershell *Get-WmiObject win32_computersystem*.
+5. **Time Source** - źródło czasu (serwer NTP). Jeśli nie jest to nazwa serwera, oznacza to, że usługo w32time nie działa poprawnie. Pobierane skryptem Powershell *w32tm /query /status | Select-String -Pattern "^Source:.\*"
+6. **Chrome Version** - wersja zainstalowanej przegladarki Chrome. Pobierane przez wyczytanie wersji z pliku chrome.exe. 
+7. **PrintConfig.dll** - obecność pliku PrinConfig.dll w katalogu *C:\Windows\System32\spool\drivers\x64\3*. Brak tego pliku powoduje błąd przy próbie druku z aplikacji Universal Windows Platform.
+8. **Office** - wersja oprogramowania MS Office. Pobierane skryptem Powershell *Get-WmiObject win32_product | where{$_.Name -like "Microsoft Office Standard\*" -or $_.Name -like "Microsoft Office Professional\*"} | select Name,Version*.
+9. **Monitor YearOfManufacture** - rok produkcji monitora. Pobierane skryptem Powershell *gwmi -Namespace root\\wmi -Class wmiMonitorID ...*.
+10. **Monitor Name** - nazwa moniotora. Pobierane skryptem Powershell *gwmi -Namespace root\\wmi -Class wmiMonitorID ...*.
+11. **Monitor SN** - numer seryjny monitora. Pobierane skryptem Powershell *gwmi -Namespace root\\wmi -Class wmiMonitorID ...*.
 
 ### Dodawanie nowych funkcji
 Nowe funkcjonalności można dodawać tworząc nowe funkcje klasy *Func* i dodając wpis do listy *properties*.
 
 ## Wykryte problemy
 1. W przypadku kilku kart sieciowych (także wirtualnych) zakres IP może być wyznaczony na bazie nieodpowiedniej karty.
+2. Część parametrów jest niedostępna dla komputera, z którego aplikacja jest uruchamiana. Rozwiązaniem jest uruchamianie z podniesionymi uporawnieniami.
 
 ## Pakowanie do exe
 1. W środowisku wirtualnym pipenv zainstalować pyinstaller (jesli nie jest juz zainstalowany).
