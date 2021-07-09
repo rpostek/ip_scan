@@ -273,7 +273,7 @@ def get_params():
     layout.append([sg.Checkbox(text='export to Excel', default=False, key='save-xlsx')],)
     layout.append([sg.ProgressBar(1, orientation='h', size=(20, 20), key='progress'), sg.Submit("OK", pad=((20, 10), 3))],)
     #layout.append([sg.ProgressBar(1, orientation='h', size=(20, 20), key='progress')],)
-    window = sg.Window("ipscanner 1.1", layout)
+    window = sg.Window("ipscanner 1.2", layout)
     while True:
         event, values = window.read()
         if event == "OK":
