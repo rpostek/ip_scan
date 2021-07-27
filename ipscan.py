@@ -34,6 +34,32 @@ class Func:
         return data
 
     @staticmethod
+    def get_network_data(ip: str) -> dict:
+        data = dict()
+        try:
+            #r = Func.runPSjson(f"gwmi -ClassName Win32_NetworkAdapterConfiguration -Filter \"IPEnabled='True'\" -comp {ip} |  Where-Object {{$_.PNPDeviceID -like 'PCI*'}} | select *")
+            #r = Func.runPSjson(f"gwmi -ClassName Win32_NetworkAdapter -comp {ip} |  Where-Object {{($_.PNPDeviceID -like 'PCI*') -and ($_.NetEnabled )}} | select *")
+            r = Func.runPSjson(f"Get-NetNeighbor {ip}")
+
+            data['MAC Address'] = r['LinkLayerAddress']
+            return data
+        except:
+            pass
+        return data
+
+    '''@staticmethod
+    def get_WoL(ip: str) -> dict:
+        data = dict()
+        try:
+            r = Func.runPSjson(f"$wol = gwmi -Class Win32_NetworkAdapter -Filter \"netenabled = 'true'\" -ComputerName {ip} |  Where-Object {{$_.PNPDeviceID -like 'PCI*'}}; gwmi MSPower_DeviceWakeEnable -Namespace root\wmi -ComputerName {ip}| where " + "{$_.instancename -match [regex]::escape($wol.PNPDeviceID) } | select -Property Enable")
+            data['WakeOnLan'] = r['Enable']
+            return data
+        except:
+            pass
+        return data
+    '''
+
+    @staticmethod
     def get_bios_data(ip: str) -> dict:
         data = dict()
         try:
@@ -229,6 +255,8 @@ class Func:
 
 properties = (
     Property('Name', Func.get_computer_data, 'nazwa komputera', False),
+    Property('MAC Address', Func.get_network_data, 'adres MAC aktywnej karty sieciowej', False),
+    #Property('WakeOnLan', Func.get_WoL, 'czy włączona jest funkcja Wake on LAN', False),
     Property('Last Logged User', Func.get_last_user, 'ostatni zalogowany użytkownik', True),
     Property('User Name', Func.get_computer_data, 'zalogowany użytkownik', False),
     Property('OS', Func.get_os_version, 'system operacyjny', False),
@@ -273,7 +301,7 @@ def get_params():
     layout.append([sg.Checkbox(text='export to Excel', default=False, key='save-xlsx')],)
     layout.append([sg.ProgressBar(1, orientation='h', size=(20, 20), key='progress'), sg.Submit("OK", pad=((20, 10), 3))],)
     #layout.append([sg.ProgressBar(1, orientation='h', size=(20, 20), key='progress')],)
-    window = sg.Window("ipscanner 1.2", layout)
+    window = sg.Window("ipscanner 1.3", layout)
     while True:
         event, values = window.read()
         if event == "OK":

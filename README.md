@@ -11,6 +11,7 @@ Dane wyjściowe są prezentowanie w tabeli Powershella. Tabela umożliwia łatwe
 
 ## Funkcje
 1. **Name** - nazwa komputera. Pobierana komendą Powershell *Get-WmiObject win32_computersystem*.
+1. **MAC Address** - adres aktywnej karty sieciowej *Get-NetNeighbor*.
 1. **Last Logged User** - nazwa użytkownika, który ostatnio logował się na komputerze. Określana na podstawie pliku na pulpicie "Skrót do moje konto".
 1. **User Name** - nazwa aktualnie zalogowanego użytkownika. Pobierana komendą Powershell *Get-WmiObject win32_computersystem*.
 1. **OS** - nazwa systemu operacyjnego komputera. Pobierana komendą Powershell *Get-WmiObject Win32_OperatingSystem*.
