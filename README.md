@@ -19,6 +19,7 @@ Dane wyjściowe są prezentowanie w tabeli Powershella. Tabela umożliwia łatwe
 1. **Manufacturer** - Nazwa producenta komputera. Pobierana komendą Powershell *Get-WmiObject win32_computersystem*.
 1. **System Family** - ... Pobierana komendą Powershell *Get-WmiObject win32_computersystem*.
 1. **Model** - model komputera. Pobierana komendą Powershell *Get-WmiObject win32_computersystem*.
+1. **SerialNumber** - numer seryjny komputera.
 1. **BIOS** - wersja BIOSu.
 1. **BIOS date** - data wydania BIOSu.
 2. **Processor** - model procesora.

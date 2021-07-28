@@ -68,6 +68,7 @@ class Func:
             r = Func.runPSjson(f'gwmi Win32_BIOS -comp {ip} | select *')
             data['BIOS'] = r['SMBIOSBIOSVersion']
             data['BIOS date'] = r['ReleaseDate'][:4] + '-' + r['ReleaseDate'][4:6] + '-' + r['ReleaseDate'][6:8]
+            data['SerialNumber'] = r['SerialNumber']
             return data
         except:
             pass
@@ -266,6 +267,7 @@ properties = (
     Property('Manufacturer', Func.get_computer_data, 'producent komputera', False),
     Property('System Family', Func.get_computer_data, 'model komputera', False),
     Property('Model', Func.get_computer_data, 'model komputera', False),
+    Property('SerialNumber', Func.get_bios_data, 'numer seryjny komputera', False),
     Property('BIOS', Func.get_bios_data, 'wersja BIOSu', False),
     Property('BIOS date', Func.get_bios_data, 'data wydania BIOSu', False),
     Property('Processor', Func.get_processor_data, 'typ procesora', False),
@@ -303,7 +305,7 @@ def get_params():
     layout.append([sg.Checkbox(text='export to Excel', default=False, key='save-xlsx')],)
     layout.append([sg.ProgressBar(1, orientation='h', size=(20, 20), key='progress'), sg.Submit("OK", pad=((20, 10), 3))],)
     #layout.append([sg.ProgressBar(1, orientation='h', size=(20, 20), key='progress')],)
-    window = sg.Window("ipscanner 1.4", layout)
+    window = sg.Window("ipscanner 1.5", layout)
     while True:
         event, values = window.read()
         if event == "OK":
