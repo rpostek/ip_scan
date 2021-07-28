@@ -15,6 +15,7 @@ import json
 import openpyxl
 import datetime
 import sqlite3
+import yaml
 
 class Property:
     def __init__(self, name: str, func: Callable, description: str='', enabled: bool=True) -> None:
@@ -258,7 +259,7 @@ class Func:
 
 properties = (
     Property('Name', Func.get_computer_data, 'nazwa komputera', False),
-    Property('MAC Address', Func.get_network_data, 'adres MAC aktywnej karty sieciowej', False),
+    Property('MAC Address', Func.get_network_data, 'adres MAC aktywnej karty sieciowej', True),
     #Property('WakeOnLan', Func.get_WoL, 'czy włączona jest funkcja Wake on LAN', False),
     Property('Last Logged User', Func.get_last_user, 'ostatni zalogowany użytkownik', True),
     Property('User Name', Func.get_computer_data, 'zalogowany użytkownik', False),
@@ -292,6 +293,7 @@ def get_params():
     for pr in properties:
         frame_layout.append([sg.Checkbox(text=pr.name, tooltip=pr.description, default=pr.enabled, key='property-' + pr.name)])
     layout.append([sg.Frame('Parameter list', frame_layout, title_color='black')])
+    layout.append([sg.Checkbox(text='use following add range', default=False, key='use-iprange')])
     layout.append([sg.Text(f'IP addr range ', pad=(1,3)),
                    sg.InputText(size=(3, 1), default_text=my_ip[0], key='ips1', pad=(1, 3)),
                    sg.InputText(size=(3, 1), default_text=my_ip[1], key='ips2', pad=(1, 3)),
@@ -305,7 +307,7 @@ def get_params():
     layout.append([sg.Checkbox(text='export to Excel', default=False, key='save-xlsx')],)
     layout.append([sg.ProgressBar(1, orientation='h', size=(20, 20), key='progress'), sg.Submit("OK", pad=((20, 10), 3))],)
     #layout.append([sg.ProgressBar(1, orientation='h', size=(20, 20), key='progress')],)
-    window = sg.Window("ipscanner 1.5", layout)
+    window = sg.Window("ipscanner 1.6", layout)
     while True:
         event, values = window.read()
         if event == "OK":
@@ -319,7 +321,7 @@ def get_params():
     prop_list = [k.replace('property-', '') for k,v in values.items() if v and k.startswith('property-')]
     fun_list = {p.func for p in properties if p.name in prop_list}  #lista funkcji do wykonania
     prop_list = ['No', 'IP'] + prop_list  + ['Time',] #lista kolumn do wyświetlenia
-    return {'property_list': prop_list, 'function_list': fun_list,
+    return {'property_list': prop_list, 'function_list': fun_list, 'use-iprange': values['use-iprange'],
             'ips1': values['ips1'], 'ips2': values['ips2'], 'ips3': values['ips3'], 'ips4': values['ips4'],
             'ipe1': values['ipe1'], 'ipe2': values['ipe2'], 'ipe3': values['ipe3'], 'ipe4': values['ipe4'],
             'save-xlsx': values['save-xlsx'],}
@@ -404,23 +406,45 @@ def database_update(table, header):
     con.commit()
     con.close()
 
+def get_config():
+    global config
+    try:
+        with open(r'config.yaml', encoding='utf8') as yf:
+            config = yaml.full_load(yf)
+        config['ips'] = []
+        for addr_range in config['IPranges']:
+            ip_start, ip_end = addr_range.split('-')
+            ip = ipaddress.ip_address(ip_start)
+            while ip <= ipaddress.ip_address(ip_end):
+                config['ips'].append(ip)
+                ip = ip + 1
+    except:
+        print('brak pliku config.yml')
+        sys.exit(1)
+
 
 if __name__ == '__main__':
+    get_config()
     cfg = get_params()
-    try:
-        ip_start = ipaddress.ip_address(cfg['ips1'] + '.' + cfg['ips2'] + '.' + cfg['ips3'] + '.' + cfg['ips4'])
-        ip_end = ipaddress.ip_address(cfg['ipe1'] + '.'  + cfg['ipe2'] + '.'  + cfg['ipe3'] + '.' +cfg['ipe4'])
-        if ip_start > ip_end:
-            raise ValueError
-    except ValueError:
-        sg.popup_ok('Błędny adres IP.', auto_close=True, auto_close_duration=3)
-        sys.exit(1)
+    if(cfg['use-iprange']):
+        try:
+            config['ips'] = []
+            ip_start = ipaddress.ip_address(cfg['ips1'] + '.' + cfg['ips2'] + '.' + cfg['ips3'] + '.' + cfg['ips4'])
+            ip_end = ipaddress.ip_address(cfg['ipe1'] + '.'  + cfg['ipe2'] + '.'  + cfg['ipe3'] + '.' +cfg['ipe4'])
+            if ip_start > ip_end:
+                raise ValueError
+            ip=ip_start
+            while ip <= ipaddress.ip_address(ip_end):
+                config['ips'].append(ip)
+                ip = ip + 1
+        except ValueError:
+            sg.popup_ok('Błędny adres IP.', auto_close=True, auto_close_duration=3)
+            sys.exit(1)
     table = []
     lock = threading.Lock()
-    ip = ip_start
     no = 1
     threads = []
-    while ip <= ip_end:
+    for ip in config['ips']:
         t = threading.Thread(target=check_computer, args=(ip, no, cfg, table,))
         threads.append(t)
         t.start()
@@ -428,9 +452,10 @@ if __name__ == '__main__':
         ip = ip + 1
     while threading.active_count() > 1:
         time.sleep(0.2)
-        window.FindElement('progress').UpdateBar(no-threading.active_count(), no-1)
-    window.FindElement('progress').UpdateBar(no - threading.active_count(), no - 1)
-    time.sleep(0.2)
+        #window.FindElement('progress').UpdateBar(no-threading.active_count(), no-1)
+        window.FindElement('progress').UpdateBar(no - threading.active_count(), len(config['ips']))
+    window.FindElement('progress').UpdateBar(1,1)
+    time.sleep(0.3)
     for t in threads:
         t.join()
     window.close()
