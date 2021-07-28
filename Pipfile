@@ -8,6 +8,7 @@ pefile = "*"
 pysimplegui = "*"
 pyinstaller = "*"
 openpyxl = "*"
+wakeonlan = "*"
 
 [dev-packages]
 

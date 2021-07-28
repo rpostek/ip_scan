@@ -32,6 +32,7 @@ Dane wyjściowe są prezentowanie w tabeli Powershella. Tabela umożliwia łatwe
 10. **Monitor Name** - nazwa moniotora. Pobierane skryptem Powershell *gwmi -Namespace root\\wmi -Class wmiMonitorID ...*.
 11. **Monitor SN** - numer seryjny monitora. Pobierane skryptem Powershell *gwmi -Namespace root\\wmi -Class wmiMonitorID ...*.
 
+Jeśli zbierane są co najmniej dane: nazwa komputera, ostatni zalogowany użytkownik, MAC, to dane sa zapisywane w lokalnej bazie danych - do wykorzystania przez moduł WakOnLan.
 ### Dodawanie nowych funkcji
 Nowe funkcjonalności można dodawać tworząc nowe funkcje klasy *Func* i dodając wpis do listy *properties*.
 

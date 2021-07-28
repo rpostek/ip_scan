@@ -13,6 +13,8 @@ import threading
 import time
 import json
 import openpyxl
+import datetime
+import sqlite3
 
 class Property:
     def __init__(self, name: str, func: Callable, description: str='', enabled: bool=True) -> None:
@@ -301,7 +303,7 @@ def get_params():
     layout.append([sg.Checkbox(text='export to Excel', default=False, key='save-xlsx')],)
     layout.append([sg.ProgressBar(1, orientation='h', size=(20, 20), key='progress'), sg.Submit("OK", pad=((20, 10), 3))],)
     #layout.append([sg.ProgressBar(1, orientation='h', size=(20, 20), key='progress')],)
-    window = sg.Window("ipscanner 1.3", layout)
+    window = sg.Window("ipscanner 1.4", layout)
     while True:
         event, values = window.read()
         if event == "OK":
@@ -314,7 +316,7 @@ def get_params():
     #window.close()
     prop_list = [k.replace('property-', '') for k,v in values.items() if v and k.startswith('property-')]
     fun_list = {p.func for p in properties if p.name in prop_list}  #lista funkcji do wykonania
-    prop_list = ['No', 'IP'] + prop_list   #lista kolumn do wyświetlenia
+    prop_list = ['No', 'IP'] + prop_list  + ['Time',] #lista kolumn do wyświetlenia
     return {'property_list': prop_list, 'function_list': fun_list,
             'ips1': values['ips1'], 'ips2': values['ips2'], 'ips3': values['ips3'], 'ips4': values['ips4'],
             'ipe1': values['ipe1'], 'ipe2': values['ipe2'], 'ipe3': values['ipe3'], 'ipe4': values['ipe4'],
@@ -347,6 +349,7 @@ def check_computer(ip: ipaddress, no: int, cfg: dict, table: list) -> None:
         data = {'No': f'{no:03}', 'IP': ip.__str__()}
         for f in cfg['function_list']:
             data.update(f(ip.__str__()))
+        data.update({'Time': datetime.datetime.now().isoformat(sep=' ')[:19]})
         lock.acquire()
         table.append(clear_data(data, cfg['property_list']))
         lock.release()
@@ -380,6 +383,25 @@ def save_xls(table, header):
                 row.append(data[field])
             ws.append(row)
         wb.save(filename)
+
+
+def database_update(table, header):
+    if not ('Name' in header and 'MAC Address' and 'Last Logged User' in header):
+        return
+    con = sqlite3.connect('computers.sqlite')
+    cur = con.cursor()
+    try:
+        cur.execute('''CREATE TABLE computers
+                       (name text, ip text, mac text, user text, time text)''')
+        con.commit()
+    except:
+        pass
+    for record in table:
+        cur.execute("INSERT INTO computers VALUES (" +
+                    f"\'{record['Name']}\', \'{record['IP']}\', \'{record['MAC Address']}\', \'{record['Last Logged User']}\', \'{record['Time']}\')" )
+    con.commit()
+    con.close()
+
 
 if __name__ == '__main__':
     cfg = get_params()
@@ -415,4 +437,5 @@ if __name__ == '__main__':
         table[r]['No'] = f'{r+1:03}'
     if cfg['save-xlsx']:
         save_xls(table, cfg['property_list'])
+    database_update(table, cfg['property_list'])
     display_table(table, cfg['property_list'])
