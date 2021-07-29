@@ -101,6 +101,8 @@ class Func:
                     + r" $sn = '';foreach ($i in $dt.SerialNumberID) {$sn += [char[]]$i};"\
                     + r" @{'Monitor YearOfManufacture'=$dt.YearOfManufacture;'Monitor Name'=$name;'Monitor SN'=$sn}"
             data = Func.runPSjson(psqry)
+            data['Monitor SN'] = data['Monitor SN'].replace('\x00','')
+            data['Monitor Name'] = data['Monitor Name'].replace('\x00','')
             return data
         except:
             pass
@@ -292,8 +294,12 @@ def get_params():
     frame_layout = []
     for pr in properties:
         frame_layout.append([sg.Checkbox(text=pr.name, tooltip=pr.description, default=pr.enabled, key='property-' + pr.name)])
-    layout.append([sg.Frame('Parameter list', frame_layout, title_color='black')])
-    layout.append([sg.Checkbox(text='use following add range', default=False, key='use-iprange')])
+    layout.append([sg.Frame('Parameter list', frame_layout, title_color='black'),])
+    layout.append([sg.Checkbox(text='export to Excel', default=False, key='save-xlsx', tooltip='Zapis wyników wyszukiwania do pliku Excela.')],)
+    layout.append([sg.Submit("OK", pad=((20, 10), 3)),])
+    layout.append([sg.HorizontalSeparator()], )
+    layout.append([sg.Checkbox(text='use the following addr range', default=False, key='use-iprange',
+                               tooltip='Użycie poiższego zakresu adresów zamiast podanego w pliku konfiguracujnym.')])
     layout.append([sg.Text(f'IP addr range ', pad=(1,3)),
                    sg.InputText(size=(3, 1), default_text=my_ip[0], key='ips1', pad=(1, 3)),
                    sg.InputText(size=(3, 1), default_text=my_ip[1], key='ips2', pad=(1, 3)),
@@ -304,10 +310,12 @@ def get_params():
                    sg.InputText(size=(3,1), default_text=my_ip[1], key='ipe2', pad=(1,3)),
                    sg.InputText(size=(3,1), default_text=my_ip[2], key='ipe3', pad=(1,3)),
                    sg.InputText(size=(3,1), default_text='170', key='ipe4', pad=(1,3))])
-    layout.append([sg.Checkbox(text='export to Excel', default=False, key='save-xlsx')],)
-    layout.append([sg.ProgressBar(1, orientation='h', size=(20, 20), key='progress'), sg.Submit("OK", pad=((20, 10), 3))],)
+    layout.append([sg.HorizontalSeparator()],)
+    layout.append([sg.ProgressBar(1, orientation='h', size=(20, 20), key='progress'),],)
+    layout.append([sg.HorizontalSeparator()], )
+    layout.append([ sg.Button("Update database", button_color='red4', tooltip='Odpytanie komputerów w zakresie wszystkich właściwosći i aktualizacja bazy danych.\nTrwa długo.\n Można zawęzić zakres adresacji opcją powyżej.'),])
     #layout.append([sg.ProgressBar(1, orientation='h', size=(20, 20), key='progress')],)
-    window = sg.Window("ipscanner 1.6", layout)
+    window = sg.Window("ipscanner 2.0 beta", layout)
     while True:
         event, values = window.read()
         if event == "OK":
@@ -317,6 +325,10 @@ def get_params():
         if event == sg.WIN_CLOSED:
             sys.exit(0)
             # TODO close running threads
+        if event == "Update database":
+            window.Element("Update database").update(disabled=True)
+            return {'Update database': True}
+
     #window.close()
     prop_list = [k.replace('property-', '') for k,v in values.items() if v and k.startswith('property-')]
     fun_list = {p.func for p in properties if p.name in prop_list}  #lista funkcji do wykonania
@@ -349,6 +361,7 @@ def clear_data(data: dict, header: list) -> dict:
     return d
 
 def check_computer(ip: ipaddress, no: int, cfg: dict, table: list) -> None:
+    global cnt_done
     if Func.detect_on(ip.__str__()):
         data = {'No': f'{no:03}', 'IP': ip.__str__()}
         for f in cfg['function_list']:
@@ -357,6 +370,9 @@ def check_computer(ip: ipaddress, no: int, cfg: dict, table: list) -> None:
         lock.acquire()
         table.append(clear_data(data, cfg['property_list']))
         lock.release()
+    lock.acquire()
+    cnt_done = cnt_done + 1
+    lock.release()
 
 def save_xls(table, header):
     filename = sg.popup_get_file('Save as',
@@ -387,6 +403,28 @@ def save_xls(table, header):
                 row.append(data[field])
             ws.append(row)
         wb.save(filename)
+
+def update_xlsx(table, header):
+    wb = openpyxl.load_workbook(filename=config['DBfile'])
+    for s in range(len(wb.sheetnames)):
+        if wb.sheetnames[s] == 'DB':
+            break
+    wb.active = s
+    ws = wb.active
+    for data in table:
+        row = []
+        for field in header:
+            row.append(str(data[field]))
+        for r in range(2, ws.max_row+1):
+            exists = False
+            if ws.cell(row=r, column=12).value == data['SerialNumber']: #column = column z s/n
+                for c,d in enumerate(row, 1):
+                    ws.cell(row=r, column=c).value = d
+                exists = True
+                break
+        if not exists:
+            ws.append(row)
+    wb.save(config['DBfile'])
 
 
 def database_update(table, header):
@@ -422,25 +460,34 @@ def get_config():
         print('brak pliku config.yml')
         sys.exit(1)
 
+cnt_done = 0
 
 if __name__ == '__main__':
-    get_config()
     cfg = get_params()
-    if(cfg['use-iprange']):
-        try:
-            config['ips'] = []
-            ip_start = ipaddress.ip_address(cfg['ips1'] + '.' + cfg['ips2'] + '.' + cfg['ips3'] + '.' + cfg['ips4'])
-            ip_end = ipaddress.ip_address(cfg['ipe1'] + '.'  + cfg['ipe2'] + '.'  + cfg['ipe3'] + '.' +cfg['ipe4'])
-            if ip_start > ip_end:
-                raise ValueError
-            ip=ip_start
-            while ip <= ipaddress.ip_address(ip_end):
-                config['ips'].append(ip)
-                ip = ip + 1
-        except ValueError:
-            sg.popup_ok('Błędny adres IP.', auto_close=True, auto_close_duration=3)
-            sys.exit(1)
+    get_config()
+    if cfg.get('Update database', False):
+        cfg['property_list'] = []
+        for p in properties:
+            cfg['property_list'].append(p.name)
+        cfg['function_list'] = {p.func for p in properties if p.name in cfg['property_list']}
+        cfg['property_list'] = ['No', 'IP'] + cfg['property_list'] + ['Time']
+    else:
+        if(cfg['use-iprange']):
+            try:
+                config['ips'] = []
+                ip_start = ipaddress.ip_address(cfg['ips1'] + '.' + cfg['ips2'] + '.' + cfg['ips3'] + '.' + cfg['ips4'])
+                ip_end = ipaddress.ip_address(cfg['ipe1'] + '.'  + cfg['ipe2'] + '.'  + cfg['ipe3'] + '.' +cfg['ipe4'])
+                if ip_start > ip_end:
+                    raise ValueError
+                ip=ip_start
+                while ip <= ipaddress.ip_address(ip_end):
+                    config['ips'].append(ip)
+                    ip = ip + 1
+            except ValueError:
+                sg.popup_ok('Błędny adres IP.', auto_close=True, auto_close_duration=3)
+                sys.exit(1)
     table = []
+    cnt_done = 0
     lock = threading.Lock()
     no = 1
     threads = []
@@ -453,7 +500,8 @@ if __name__ == '__main__':
     while threading.active_count() > 1:
         time.sleep(0.2)
         #window.FindElement('progress').UpdateBar(no-threading.active_count(), no-1)
-        window.FindElement('progress').UpdateBar(no - threading.active_count(), len(config['ips']))
+        #window.FindElement('progress').UpdateBar(no - threading.active_count(), len(config['ips']))
+        window.FindElement('progress').UpdateBar(cnt_done, len(config['ips']))
     window.FindElement('progress').UpdateBar(1,1)
     time.sleep(0.3)
     for t in threads:
@@ -462,7 +510,9 @@ if __name__ == '__main__':
     table = sorted(table, key=lambda i:i['No'])
     for r in range(len(table)):
         table[r]['No'] = f'{r+1:03}'
-    if cfg['save-xlsx']:
+    if cfg.get('save-xlsx', False):
         save_xls(table, cfg['property_list'])
     database_update(table, cfg['property_list'])
+    if cfg.get('Update database', False):
+        update_xlsx(table, cfg['property_list'])
     display_table(table, cfg['property_list'])
