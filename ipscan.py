@@ -16,6 +16,8 @@ import openpyxl
 import datetime
 import sqlite3
 import yaml
+import re
+
 
 class Property:
     def __init__(self, name: str, func: Callable, description: str='', enabled: bool=True) -> None:
@@ -93,6 +95,32 @@ class Func:
         return data
 
     @staticmethod
+    def get_disk_data(ip: str) -> dict:
+        data = dict()
+        try:
+            r = Func.runPSjson(f'gwmi win32_logicaldisk -comp {ip} | where-object -Property DeviceID -eq "C:"')
+            data['FreeSpace'] = f"{float(r['FreeSpace']) / (2 ** 30):2.2f} GB"
+            data['DiskSize'] = f"{float(r['Size']) / (2 ** 30):2.2f} GB"
+            return data
+        except:
+            pass
+        return data
+
+
+
+    @staticmethod
+    def get_drivers_data(ip: str) -> dict:
+        data = dict()
+        try:
+            r = Func.runPSjson(f'Get-WmiObject Win32_PnPSignedDriver -computer {ip} | Where-Object -Property DeviceName -EQ "Realtek PCIe GBE Family Controller"')
+            data['Ethernet Driver'] = r['DriverVersion'] + ' ' + r['DeviceName']
+            return data
+        except:
+            pass
+        return data
+
+
+    @staticmethod
     def get_monitor_data(ip: str) -> dict:
         data = dict()
         try:
@@ -111,6 +139,8 @@ class Func:
     @staticmethod
     def get_os_version(ip: str) -> dict:
         OS_VERSIONS = {
+            '10.0.22000': 'Windows 11',
+            '10.0.19044': 'Windows 10 (21H2)',
             '10.0.19043': 'Windows 10 (21H1)',
             '10.0.19042': 'Windows 10 (20H2)',
             '10.0.19041': 'Windows 10 (2004)',
@@ -156,15 +186,52 @@ class Func:
         return data
 
     @staticmethod
+    def get_software_installed(ip: str) -> dict:
+        data=dict()
+        try:
+            r = Func.runPSjson(f'Get-WmiObject win32_product -ComputerName {ip} | ' + 'select Name,Version,Vendor')
+            data['Software'] = ''
+            for item in r:
+                data['Software'] = data['Software'] + item['Name']  + ' (' + item['Version'] +')\n'
+                item_found = re.search('CorelDRAW.*Draw',item['Name'])
+                if item_found:
+                    data['Corel'] = item['Name']  + ' (' + item['Version'] +')'
+                item_found = re.search('Microsoft Office Standard.*',item['Name'])
+                if item_found:
+                    data['Office'] = item['Name']  + ' (' + item['Version'] +')'
+                item_found = re.search('Microsoft Office Professional.*',item['Name'])
+                if item_found:
+                    data['Office'] = item['Name']  + ' (' + item['Version'] +')'
+                item_found = re.search('ABBYY PDF Transformer.*',item['Name'])
+                if item_found:
+                    data['ABBYY PDF Transformer'] = item['Name']  + ' (' + item['Version'] +')'
+                item_found = re.search('Java \\d.*',item['Name'])
+                data_java = ''
+                if item_found:
+                    data_java = item['Vendor'] + ' ' + item['Name']  + ' (' + item['Version'] +')'
+                    data['Java'] = data_java
+                item_found = re.search('.*JRE \\d.*', item['Name'])
+                if item_found:
+                    data['Java'] = data_java + item['Vendor'] + ' ' + item['Name'] + ' (' + item['Version'] + ')'
+            return data
+        except:
+            pass
+        return data
+
+
+    @staticmethod
     def runPSjson(cmd: str) -> str:
         try:
             ps = subprocess.Popen(["powershell", "-Command", cmd + ' | ConvertTo-json'],
                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                   creationflags=subprocess.CREATE_NO_WINDOW)
-            data = ps.communicate()[0]
+            data, errs = ps.communicate(timeout=120) #[0]
             data = data.decode(encoding='cp852')
             return json.loads(data)
-        except:
+        except subprocess.TimeoutExpired as e:
+            ps.kill()
+            data, errs = ps.communicate() #[0]
+            print(errs)
             return dict()
 
     @staticmethod
@@ -204,6 +271,24 @@ class Func:
         except PermissionError:
             return {'Last Logged User': ''}
 
+
+    @staticmethod
+    def get_last_doc_time(ip: str) -> dict:
+        try:
+            last = (None, 0)
+            for user in os.scandir(r'\\' + ip + r'\c$\Users'):
+                if user.name == 'All Users':
+                    continue
+                recent_path = pathlib.Path('\\\\' + ip + '\\c$\\Users\\' + user.name + '\\AppData\\Roaming\\Microsoft\\Office\\Ostatnie')
+                if recent_path.exists():
+                    if recent_path.stat().st_mtime > last[1]:
+                        last = user.name, recent_path.stat().st_mtime
+            return {'Last Doc Time': datetime.date.fromtimestamp(last[1]).isoformat()}
+        except PermissionError:
+            return {'Last Doc Time': ''}
+
+
+
     @staticmethod
     def detect_on(ip: str) -> bool:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -228,7 +313,7 @@ class Func:
                              verinfo.FileVersionLS >> 16, verinfo.FileVersionLS & 0xFFFF)
         wersja_produktu = (verinfo.ProductVersionMS >> 16, verinfo.ProductVersionMS & 0xFFFF,
                                 verinfo.ProductVersionLS >> 16, verinfo.ProductVersionLS & 0xFFFF)
-        if wersja_produktu == wersja_pliku:
+        if wersja_produktu[0] == wersja_pliku[0] and wersja_produktu[1] == wersja_pliku[1] and wersja_produktu[2] == wersja_pliku[2]:
             wersja = ".".join(str(i) for i in wersja_pliku)
         else:
             wersja = str(wersja_produktu[0]) + '.' + ".".join(str(i) for i in wersja_pliku)
@@ -249,6 +334,62 @@ class Func:
         except:
             pass
         return {"Chrome Version": wersja}
+
+    @staticmethod
+    def get_firefox_version(ip):
+        wersja = ''
+        try:
+            if not isinstance(ip, str):
+                ip=ip.__str__()
+            filename = f'\\\\{ip}\\c$\\Program Files\\Mozilla Firefox\\firefox.exe'
+            if os.path.isfile(filename):
+                wersja = Func.get_version(filename)
+            wersja = Func.get_firefox_config(ip) + wersja
+        except:
+            pass
+        return {"Firefox Version": wersja}
+
+
+    @staticmethod
+    def get_firefox_config(ip):
+        cfg = '-'
+        filename = f'\\\\{ip}\\c$\\Program Files\\Mozilla Firefox\\mozilla.cfg'
+        if os.path.isfile(filename):
+            if datetime.datetime.fromtimestamp(os.path.getmtime(filename)) > datetime.datetime(year=2022, month=5, day=1):
+                cfg = '*'
+        js = '-'
+        filename = f'\\\\{ip}\\c$\\Program Files\\Mozilla Firefox\\defaults\\pref\\autoconfig.js'
+        if os.path.isfile(filename):
+            if datetime.datetime.fromtimestamp(os.path.getmtime(filename)) > datetime.datetime(year=2022, month=5, day=1):
+                js = '*'
+        return cfg + js
+
+
+    @staticmethod
+    def get_irfanview_version(ip):
+        wersja = ''
+        try:
+            if not isinstance(ip, str):
+                ip=ip.__str__()
+            filename = f'\\\\{ip}\\c$\\Program Files (x86)\\IrfanView\\i_view32.exe'
+            if os.path.isfile(filename):
+                wersja = Func.get_version(filename)
+        except:
+            wersja = '---'
+        return {"irfanview Version": wersja}
+
+    @staticmethod
+    def get_7zip_version(ip):
+        wersja = ''
+        try:
+            if not isinstance(ip, str):
+                ip=ip.__str__()
+            filename = f'\\\\{ip}\\c$\\Program Files\\7-Zip\\7zFM.exe'
+            if os.path.isfile(filename):
+                wersja = Func.get_version(filename)
+        except:
+            wersja = '---'
+        return {"7-Zip Version": wersja}
 
     @staticmethod
     def exists_printconfig(ip):
@@ -278,11 +419,23 @@ properties = (
     Property('Memory', Func.get_computer_data, 'całkowita pamięć fizyczna komputera', False),
     Property('Time Source', Func.get_time_source, 'nazwa serwera synchronizacji czasu i czas ostatniej synchronizacji', False),
     Property('Chrome Version', Func.get_chrome_version, 'wersja przeglądarki chrome', False),
+    Property('Firefox Version', Func.get_firefox_version, 'wersja przeglądarki Firefox', False),
     Property('PrintConfig.dll', Func.exists_printconfig, 'obecnośc pliku PrintConfig.dll potrzebnego do drukowania z aplikacji UPW', False),
-    Property('Office', Func.get_office_version, 'wersja programu Office', False),
+#    Property('Office', Func.get_office_version, 'wersja programu Office', False),
+    Property('Office', Func.get_software_installed, 'wersja programu Office', False),
+    Property('Last Doc Time', Func.get_last_doc_time, 'czas ostatniego otwartego dokmentu Office', False),
+    Property('Corel', Func.get_software_installed, 'wersja programu Corel', False),
+    Property('ABBYY PDF Transformer', Func.get_software_installed, 'wersja programu ABBYY PDF Transformer', False),
+    Property('Java', Func.get_software_installed, 'wersja programu Java', False),
+    Property('irfanview Version', Func.get_irfanview_version, 'wersja programu irfanview', False),
+    Property('7-Zip Version', Func.get_7zip_version, 'wersja programu 7-Zip', False),
+    Property('Software', Func.get_software_installed, 'zainstalowane oprogramowanie', False),
     Property('Monitor YearOfManufacture', Func.get_monitor_data, 'rok produkcji monitora', False),
     Property('Monitor Name', Func.get_monitor_data, 'model monitora', False),
     Property('Monitor SN', Func.get_monitor_data, 'numer seryjny monitora', False),
+    Property('Ethernet Driver', Func.get_drivers_data, 'wesja sterownika Realtek PCIe GBE Family Controller', False),
+    Property('DiskSize', Func.get_disk_data, 'pojemność dysku C:', False),
+    Property('FreeSpace', Func.get_disk_data, 'wolne miejsce na dysku C:', False),
 )
 
 def get_params():
@@ -291,10 +444,22 @@ def get_params():
     sg.theme('LightBrown1')
     #layout = [[sg.Text("Parametry do wyświetlenia:")]]
     layout=[]
-    frame_layout = []
-    for pr in properties:
-        frame_layout.append([sg.Checkbox(text=pr.name, tooltip=pr.description, default=pr.enabled, key='property-' + pr.name)])
-    layout.append([sg.Frame('Parameter list', frame_layout, title_color='black'),])
+    columns = []
+    column = []
+    column_len = 8
+    for pr_no, pr in enumerate(properties):
+        if not pr_no % column_len:
+            column = []
+        column.append([sg.Checkbox(text=pr.name, tooltip=pr.description, default=pr.enabled, key='property-' + pr.name),])
+        if len(column) == column_len:
+            columns.append(sg.Column(column))
+            if pr_no != len(properties) -1:
+                columns.append(sg.VerticalSeparator(color='light grey'))
+            column = []
+    if len(column):
+        columns.append(sg.Column(column, vertical_alignment='top'))
+    layout.append(columns)
+
     layout.append([sg.Checkbox(text='export to Excel', default=False, key='save-xlsx', tooltip='Zapis wyników wyszukiwania do pliku Excela.')],)
     layout.append([sg.Submit("OK", pad=((20, 10), 3)),])
     layout.append([sg.HorizontalSeparator()], )
@@ -310,10 +475,10 @@ def get_params():
                    sg.InputText(size=(3,1), default_text=my_ip[1], key='ipe2', pad=(1,3)),
                    sg.InputText(size=(3,1), default_text=my_ip[2], key='ipe3', pad=(1,3)),
                    sg.InputText(size=(3,1), default_text='170', key='ipe4', pad=(1,3))])
-    layout.append([sg.HorizontalSeparator()],)
+    #layout.append([sg.HorizontalSeparator()],)
     layout.append([sg.ProgressBar(1, orientation='h', size=(20, 20), key='progress'),],)
-    layout.append([sg.HorizontalSeparator()], )
-    layout.append([ sg.Button("Update database", button_color='red4', tooltip='Odpytanie komputerów w zakresie wszystkich właściwosći i aktualizacja bazy danych.\nTrwa długo.\n Można zawęzić zakres adresacji opcją powyżej.'),])
+    #layout.append([sg.HorizontalSeparator()], )
+    layout.append([ sg.Button("Update database", button_color='red3', tooltip='Odpytanie komputerów w zakresie wszystkich właściwosći i aktualizacja bazy danych.\nTrwa długo.\n Można zawęzić zakres adresacji opcją powyżej.'),])
     #layout.append([sg.ProgressBar(1, orientation='h', size=(20, 20), key='progress')],)
     window = sg.Window("ipscanner 2.0 beta", layout)
     while True:
@@ -415,8 +580,8 @@ def update_xlsx(table, header):
         row = []
         for field in header:
             row.append(str(data[field]))
+        exists = False
         for r in range(2, ws.max_row+1):
-            exists = False
             if ws.cell(row=r, column=12).value == data['SerialNumber']: #column = column z s/n
                 for c,d in enumerate(row, 1):
                     ws.cell(row=r, column=c).value = d
@@ -456,8 +621,8 @@ def get_config():
             while ip <= ipaddress.ip_address(ip_end):
                 config['ips'].append(ip)
                 ip = ip + 1
-    except:
-        print('brak pliku config.yml')
+    except FileNotFoundError:
+        print('brak pliku config.yaml')
         sys.exit(1)
 
 cnt_done = 0
@@ -498,11 +663,10 @@ if __name__ == '__main__':
         no = no + 1
         ip = ip + 1
     while threading.active_count() > 1:
-        time.sleep(0.2)
-        #window.FindElement('progress').UpdateBar(no-threading.active_count(), no-1)
-        #window.FindElement('progress').UpdateBar(no - threading.active_count(), len(config['ips']))
-        window.FindElement('progress').UpdateBar(cnt_done, len(config['ips']))
-    window.FindElement('progress').UpdateBar(1,1)
+        time.sleep(0.5)
+        window['progress'].UpdateBar(cnt_done, len(config['ips']))
+        print(threading.active_count())
+    window['progress'].UpdateBar(1,1)
     time.sleep(0.3)
     for t in threads:
         t.join()
@@ -512,7 +676,6 @@ if __name__ == '__main__':
         table[r]['No'] = f'{r+1:03}'
     if cfg.get('save-xlsx', False):
         save_xls(table, cfg['property_list'])
-    database_update(table, cfg['property_list'])
     if cfg.get('Update database', False):
         update_xlsx(table, cfg['property_list'])
     display_table(table, cfg['property_list'])

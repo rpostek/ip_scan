@@ -1,3 +1,6 @@
 IPranges:
   - 192.168.1.10-192.168.1.30
   - 192.168.1.150-192.168.1.170
+
+# plik bazy danych
+DBfile: \\server\share\db.xlsx
