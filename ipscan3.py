@@ -17,6 +17,7 @@ import datetime
 import sqlite3
 import yaml
 import re
+import concurrent.futures
 
 
 class Property:
@@ -631,6 +632,17 @@ def get_config():
 
 cnt_done = 0
 
+class Thread_cather:
+    def __init__(self, pool_len):
+        self.pool_len = pool_len
+        self.done = 0
+
+    def update_progress_bar(self, future):
+        lock.acquire()
+        self.done = self.done + 1
+        lock.release()
+
+
 if __name__ == '__main__':
     cfg = get_params()
     get_config()
@@ -655,25 +667,25 @@ if __name__ == '__main__':
             except ValueError:
                 sg.popup_ok('Błędny adres IP.', auto_close=True, auto_close_duration=3)
                 sys.exit(1)
+    progress = Thread_cather(len(config['ips']))
     table = []
     cnt_done = 0
     lock = threading.Lock()
     no = 1
-    threads = []
-    for ip in config['ips']:
-        t = threading.Thread(target=check_computer, args=(ip, no, cfg, table,))
-        threads.append(t)
-        t.start()
-        no = no + 1
-        ip = ip + 1
-    while threading.active_count() > 1:
-        time.sleep(0.5)
-        window['progress'].UpdateBar(cnt_done, len(config['ips']))
-        print(threading.active_count())
+    futures = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=30) as pool:
+        for ip in config['ips']:
+            futures.append(pool.submit(check_computer, ip, no, cfg, table))
+            no = no + 1
+            ip = ip + 1
+        for future in futures:
+            future.add_done_callback(progress.update_progress_bar)
+        while progress.done != progress.pool_len:
+            time.sleep(0.3)
+            window['progress'].UpdateBar(progress.done, progress.pool_len)
     window['progress'].UpdateBar(1,1)
-    time.sleep(0.3)
-    for t in threads:
-        t.join()
+    time.sleep(1.0)
+
     window.close()
     table = sorted(table, key=lambda i:i['No'])
     for r in range(len(table)):
