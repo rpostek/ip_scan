@@ -485,7 +485,7 @@ def get_params():
     #layout.append([sg.HorizontalSeparator()], )
     layout.append([ sg.Button("Update database", button_color='red3', tooltip='Odpytanie komputerów w zakresie wszystkich właściwosći i aktualizacja bazy danych.\nTrwa długo.\n Można zawęzić zakres adresacji opcją powyżej.'),])
     #layout.append([sg.ProgressBar(1, orientation='h', size=(20, 20), key='progress')],)
-    window = sg.Window("ipscanner 2.0 beta", layout)
+    window = sg.Window("ipscanner 3.0 beta", layout)
     while True:
         event, values = window.read()
         if event == "OK":
@@ -673,7 +673,7 @@ if __name__ == '__main__':
     lock = threading.Lock()
     no = 1
     futures = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=30) as pool:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as pool:
         for ip in config['ips']:
             futures.append(pool.submit(check_computer, ip, no, cfg, table))
             no = no + 1
